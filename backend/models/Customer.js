@@ -9,7 +9,6 @@ const customerSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: true,
-      unique: true,
     },
     email: {
       type: String,
@@ -35,9 +34,18 @@ const customerSchema = new mongoose.Schema(
         ref: "Transaction",
       },
     ],
+    // NEW: Link customer to shop owner
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true }
 );
+
+// Compound index to ensure phone is unique per owner
+customerSchema.index({ phone: 1, owner: 1 }, { unique: true });
 
 const Customer = mongoose.model("Customer", customerSchema);
 export default Customer;

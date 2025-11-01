@@ -15,6 +15,7 @@ const Customers = () => {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   useEffect(() => {
+    console.log('🔍 Customers page mounted, fetching customers...');
     dispatch(getAllCustomers());
     return () => {
       dispatch(reset());
@@ -27,11 +28,19 @@ const Customers = () => {
     dispatch(getAllCustomers());
   };
 
+  const handleAddCustomer = () => {
+    console.log('🚀 Add Customer button clicked');
+    console.log('📍 Current path:', window.location.pathname);
+    console.log('➡️  Navigating to: /customers/add');
+    navigate('/customers/add');
+    console.log('✅ Navigate called');
+  };
+
   const filteredCustomers = customers.filter(
     (customer) =>
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.phone.includes(searchTerm) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -81,7 +90,7 @@ const Customers = () => {
 
             {/* Add Customer Button */}
             <button
-              onClick={() => navigate('/customers/add')}
+              onClick={handleAddCustomer}
               className="flex items-center space-x-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
             >
               <svg
@@ -206,7 +215,7 @@ const Customers = () => {
               </svg>
               <p className="text-gray-500 text-lg">No customers found</p>
               <button
-                onClick={() => navigate('/customers/add')}
+                onClick={handleAddCustomer}
                 className="mt-4 text-indigo-600 hover:text-indigo-700 font-medium"
               >
                 Add your first customer
@@ -279,12 +288,6 @@ const Customers = () => {
                           className="text-indigo-600 hover:text-indigo-900 mr-4"
                         >
                           View
-                        </button>
-                        <button
-                          onClick={() => navigate(`/customers/edit/${customer._id}`)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          Edit
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(customer._id)}

@@ -14,25 +14,42 @@ export const addCustomer = async (req, res) => {
       return res.status(400).json({ message: "Name and phone are required" });
     }
 
-    // Add this check for duplicate email too (optional)
-    const existingPhone = await Customer.findOne({ phone });
-    const existingEmail = email ? await Customer.findOne({ email }) : null;
-
+    // Check for duplicate phone within this owner's customers
+    const existingPhone = await Customer.findOne({ 
+      phone, 
+      owner: req.user._id 
+    });
+    
     if (existingPhone) {
-      return res.status(400).json({ message: "Phone number already exists" });
+      return res.status(400).json({ message: "Phone number already exists in your customer list" });
     }
-    if (existingEmail) {
-      return res.status(400).json({ message: "Email already exists" });
-    }
-    // const exists = await Customer.findOne({ phone });
-    // if (exists) return res.status(400).json({ message: "Customer already exists" });
 
-    const customer = await Customer.create({ name, phone, email, address });
-    info(`New customer added: ${name} (${email || "no email"})`);
+    // Check for duplicate email within this owner's customers (if email provided)
+    if (email) {
+      const existingEmail = await Customer.findOne({ 
+        email, 
+        owner: req.user._id 
+      });
+      
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already exists in your customer list" });
+      }
+    }
+
+    // Create customer with owner reference
+    const customer = await Customer.create({ 
+      name, 
+      phone, 
+      email, 
+      address,
+      owner: req.user._id // Link to current user
+    });
+    
+    info(`New customer added by ${req.user.name}: ${name} (${email || "no email"})`);
     res.status(201).json(customer);
   } catch (err) {
     error(`Add Customer Error: ${err.message}`);
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
 
@@ -42,31 +59,68 @@ export const addCustomer = async (req, res) => {
  */
 export const updateCustomer = async (req, res) => {
   try {
-    const updated = await Customer.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+    // First check if customer belongs to this owner
+    const customer = await Customer.findOne({ 
+      _id: req.params.id, 
+      owner: req.user._id 
     });
-    if (!updated)
-      return res.status(404).json({ message: "Customer not found" });
+    
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found or unauthorized" });
+    }
 
-    info(`Customer updated: ${updated.name} (${updated.email || "no email"})`);
+    // Check for duplicate phone if phone is being updated
+    if (req.body.phone && req.body.phone !== customer.phone) {
+      const existingPhone = await Customer.findOne({ 
+        phone: req.body.phone, 
+        owner: req.user._id,
+        _id: { $ne: req.params.id } // Exclude current customer
+      });
+      
+      if (existingPhone) {
+        return res.status(400).json({ message: "Phone number already exists" });
+      }
+    }
+
+    // Check for duplicate email if email is being updated
+    if (req.body.email && req.body.email !== customer.email) {
+      const existingEmail = await Customer.findOne({ 
+        email: req.body.email, 
+        owner: req.user._id,
+        _id: { $ne: req.params.id }
+      });
+      
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+    }
+
+    const updated = await Customer.findByIdAndUpdate(
+      req.params.id, 
+      req.body, 
+      { new: true }
+    );
+
+    info(`Customer updated by ${req.user.name}: ${updated.name} (${updated.email || "no email"})`);
     res.status(200).json(updated);
   } catch (err) {
     error(`Update Customer Error: ${err.message}`);
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
 
 /**
- * @desc Get all customers
+ * @desc Get all customers (only for current owner)
  * @route GET /api/customers
  */
 export const getAllCustomers = async (req, res) => {
   try {
-    const customers = await Customer.find().sort({ name: 1 });
+    // Only get customers that belong to current user
+    const customers = await Customer.find({ owner: req.user._id }).sort({ name: 1 });
     res.status(200).json(customers);
   } catch (err) {
-    error(`Get ALl Customers Error: ${err.message}`);
-    res.status(500).json({ message: "Server Error" });
+    error(`Get All Customers Error: ${err.message}`);
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
 
@@ -76,13 +130,20 @@ export const getAllCustomers = async (req, res) => {
  */
 export const getCustomerById = async (req, res) => {
   try {
-    const customer = await Customer.findById(req.params.id);
-    if (!customer)
-      return res.status(404).json({ message: "Customer not found" });
+    // Only get customer if it belongs to current user
+    const customer = await Customer.findOne({ 
+      _id: req.params.id, 
+      owner: req.user._id 
+    });
+    
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found or unauthorized" });
+    }
+    
     res.status(200).json(customer);
   } catch (err) {
     error(`Get Customer By Id Error: ${err.message}`);
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
 
@@ -92,14 +153,22 @@ export const getCustomerById = async (req, res) => {
  */
 export const deleteCustomer = async (req, res) => {
   try {
-    const deleted = await Customer.findByIdAndDelete(req.params.id);
-    if (!deleted)
-      return res.status(404).json({ message: "Customer not found" });
-    info(`Customer deleted: ${deleted.name}`);
+    // First check if customer belongs to this owner
+    const customer = await Customer.findOne({ 
+      _id: req.params.id, 
+      owner: req.user._id 
+    });
+    
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found or unauthorized" });
+    }
+
+    await Customer.findByIdAndDelete(req.params.id);
+    info(`Customer deleted by ${req.user.name}: ${customer.name}`);
     res.status(200).json({ message: "Customer deleted" });
   } catch (err) {
     error(`Delete Customer Error: ${err.message}`);
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
 
@@ -109,9 +178,15 @@ export const deleteCustomer = async (req, res) => {
  */
 export const getCustomerTransactions = async (req, res) => {
   try {
-    const customer = await Customer.findById(req.params.id);
-    if (!customer)
-      return res.status(404).json({ message: "Customer not found" });
+    // First check if customer belongs to this owner
+    const customer = await Customer.findOne({ 
+      _id: req.params.id, 
+      owner: req.user._id 
+    });
+    
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found or unauthorized" });
+    }
 
     const transactions = await Transaction.find({
       customer: req.params.id,
@@ -119,13 +194,12 @@ export const getCustomerTransactions = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate("invoice", "invoiceNo totalAmount paymentStatus");
 
-    // If no transactions found, still return empty array (safe)
     res.status(200).json({
       customer: { name: customer.name, phone: customer.phone },
       transactions: transactions.length ? transactions : [],
     });
   } catch (err) {
     error(`Get Customer Transactions Error: ${err.message}`);
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 };

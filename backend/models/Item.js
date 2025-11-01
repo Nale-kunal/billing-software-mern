@@ -8,7 +8,6 @@ const itemSchema = new mongoose.Schema(
     },
     sku: {
       type: String,
-      unique: true,
     },
     category: {
       type: String,
@@ -36,10 +35,14 @@ const itemSchema = new mongoose.Schema(
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+      required: true,
     },
   },
   { timestamps: true }
 );
+
+// Compound index to ensure item name is unique per owner
+itemSchema.index({ name: 1, addedBy: 1 }, { unique: true });
 
 const Item = mongoose.model("Item", itemSchema);
 export default Item;

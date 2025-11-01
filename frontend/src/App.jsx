@@ -5,15 +5,18 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import AddCustomer from './pages/AddCustomer';
-// import EditCustomer from './pages/EditCustomer';
+import EditCustomer from './pages/EditCustomer';
 import CustomerDetail from './pages/CustomerDetail';
+import Inventory from './pages/Inventory';
+import AddItem from './pages/AddItem';
+import EditItem from './pages/EditItem';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
   
   if (!user) {
-    return <Navigate to="/login" replace />;z
+    return <Navigate to="/login" replace />;
   }
   
   return children;
@@ -65,51 +68,69 @@ function App() {
           }
         />
         
-        {/* Customer Routes */}
-        <Route
-          path="/customers"
-          element={
-            <ProtectedRoute>
-              <Customers />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customers/add"
-          element={
-            <ProtectedRoute>
-              <AddCustomer />
-            </ProtectedRoute>
-          }
-        />
-        {/* <Route
-          path="/customers/edit/:id"
-          element={
-            <ProtectedRoute>
-              <EditCustomer />
-            </ProtectedRoute>
-          }
-        /> */}
-        <Route
-          path="/customers/:id"
-          element={
-            <ProtectedRoute>
-              <CustomerDetail />
-            </ProtectedRoute>
-          }
-        />
+        {/* Customer Routes - Use nested routes for better organization */}
+        <Route path="/customers">
+          <Route
+            index
+            element={
+              <ProtectedRoute>
+                <Customers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="add"
+            element={
+              <ProtectedRoute>
+                <AddCustomer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="edit/:id"
+            element={
+              <ProtectedRoute>
+                <EditCustomer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path=":id"
+            element={
+              <ProtectedRoute>
+                <CustomerDetail />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
 
-        {/* Placeholder Routes for other menu items */}
-        <Route
-          path="/inventory"
-          element={
-            <ProtectedRoute>
-              <div className="p-8">
-                <h1 className="text-2xl font-bold">Inventory - Coming Soon</h1>
-              </div>
-            </ProtectedRoute>
-          }
-        />
+        {/* Inventory Routes */}
+        <Route path="/inventory">
+          <Route
+            index
+            element={
+              <ProtectedRoute>
+                <Inventory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="add"
+            element={
+              <ProtectedRoute>
+                <AddItem />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="edit/:id"
+            element={
+              <ProtectedRoute>
+                <EditItem />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
         <Route
           path="/pos"
           element={

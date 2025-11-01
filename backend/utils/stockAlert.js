@@ -2,10 +2,12 @@ import Item from "../models/Item.js";
 
 /**
  * Checks for low or out-of-stock items and returns alert list
+ * @param {String} userId - The owner's user ID
  */
-export const checkStockAlerts = async () => {
+export const checkStockAlerts = async (userId) => {
   try {
     const items = await Item.find({
+      addedBy: userId,
       $expr: { $lte: ["$stockQty", "$lowStockLimit"] },
     });
 
