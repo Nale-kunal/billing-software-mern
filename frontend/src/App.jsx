@@ -10,6 +10,9 @@ import CustomerDetail from './pages/CustomerDetail';
 import Inventory from './pages/Inventory';
 import AddItem from './pages/AddItem';
 import EditItem from './pages/EditItem';
+import POS from './pages/POS';
+import Invoices from './pages/Invoice';
+import InvoiceDetail from './pages/InvoiceDetail';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -131,16 +134,36 @@ function App() {
             }
           />
         </Route>
-        <Route
-          path="/pos"
-          element={
-            <ProtectedRoute>
-              <div className="p-8">
-                <h1 className="text-2xl font-bold">POS - Coming Soon</h1>
-              </div>
-            </ProtectedRoute>
-          }
-        />
+
+        {/* POS Routes */}
+        <Route path="/pos">
+          <Route
+            index
+            element={
+              <ProtectedRoute>
+                <POS />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="invoices"
+            element={
+              <ProtectedRoute>
+                <Invoices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="invoice/:id"
+            element={
+              <ProtectedRoute>
+                <InvoiceDetail />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
+
+        {/* Reports Route */}
         <Route
           path="/reports"
           element={
