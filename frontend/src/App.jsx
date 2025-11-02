@@ -13,6 +13,7 @@ import EditItem from './pages/EditItem';
 import POS from './pages/POS';
 import Invoices from './pages/Invoice';
 import InvoiceDetail from './pages/InvoiceDetail';
+import Reports from './pages/Reports';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -168,9 +169,7 @@ function App() {
           path="/reports"
           element={
             <ProtectedRoute>
-              <div className="p-8">
-                <h1 className="text-2xl font-bold">Reports - Coming Soon</h1>
-              </div>
+              <Reports />
             </ProtectedRoute>
           }
         />
