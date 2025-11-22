@@ -26,11 +26,14 @@ const AddItem = () => {
 
   useEffect(() => {
     if (isSuccess) {
-      navigate('/inventory');
-    }
-    return () => {
+      // Reset state flags before navigation to prevent cleanup from interfering
       dispatch(reset());
-    };
+      // Small delay to ensure state is reset before navigation
+      const timer = setTimeout(() => {
+        navigate('/inventory');
+      }, 100);
+      return () => clearTimeout(timer);
+    }
   }, [isSuccess, navigate, dispatch]);
 
   const onChange = (e) => {

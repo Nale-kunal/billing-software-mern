@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own data
+      allow read: if isOwner(userId);
+      // Users can create their own account
+      allow create: if request.resource.data.email == request.auth.token.email;
+      // Users can update their own data
+      allow update: if isOwner(userId);
+      // Users cannot delete their account (admin only)
+      allow delete: if false;
+    }
+    
+    // Items collection - users can only access their own items
+    match /items/{itemId} {
+      allow read, write: if isAuthenticated() && 
+        (resource == null || resource.data.addedBy == request.auth.uid) &&
+        (request.resource == null || request.resource.data.addedBy == request.auth.uid);
+    }
+    
+    // Customers collection - users can only access their own customers
+    match /customers/{customerId} {
+      allow read, write: if isAuthenticated() && 
+        (resource == null || resource.data.owner == request.auth.uid) &&
+        (request.resource == null || request.resource.data.owner == request.auth.uid);
+    }
+    
+    // Invoices collection - users can only access their own invoices
+    match /invoices/{invoiceId} {
+      allow read, write: if isAuthenticated() && 
+        (resource == null || resource.data.createdBy == request.auth.uid) &&
+        (request.resource == null || request.resource.data.createdBy == request.auth.uid);
+    }
+    
+    // Transactions collection
+    match /transactions/{transactionId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Wholesalers collection
+    match /wholesalers/{wholesalerId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Dues collection
+    match /dues/{dueId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

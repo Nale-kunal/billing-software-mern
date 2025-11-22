@@ -1,18 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { getAllItems } from '../redux/slices/inventorySlice';
-import { getAllCustomers, addCustomer } from '../redux/slices/customerSlice';
+import { getAllCustomers, addCustomer, reset as resetCustomer } from '../redux/slices/customerSlice';
 import { createInvoice, reset, clearInvoice } from '../redux/slices/posSlice';
 import Layout from '../components/Layout';
+import Toast from '../components/Toast';
 
 const POS = () => {
   console.log("In pos");
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { items } = useSelector((state) => state.inventory);
-  const { customers } = useSelector((state) => state.customers);
+  const { customers, isLoading: isCustomerLoading, isSuccess: isCustomerSuccess, isError: isCustomerError, message: customerMessage } = useSelector((state) => state.customers);
   const { invoice, isLoading, isSuccess, isError, message } = useSelector((state) => state.pos);
+  
+  // Toast notification state
+  const [toast, setToast] = useState({ message: '', type: 'success' });
+  
+  // Ref to track if we're adding a customer
+  const isAddingCustomerRef = useRef(false);
 
   // Tab system state - Load from localStorage on mount
   const [tabs, setTabs] = useState(() => {
@@ -246,11 +253,31 @@ const POS = () => {
   // Customer management
   const handleAddCustomer = async (e) => {
     e.preventDefault();
-    await dispatch(addCustomer(newCustomer));
-    await dispatch(getAllCustomers());
-    setNewCustomer({ name: '', phone: '', email: '', address: '' });
-    setShowAddCustomer(false);
+    isAddingCustomerRef.current = true;
+    dispatch(addCustomer(newCustomer));
   };
+
+  // Handle customer add success/error - this will trigger when Redux state changes
+  useEffect(() => {
+    if (isCustomerSuccess && showAddCustomer && isAddingCustomerRef.current) {
+      // Success - show notification and close modal
+      setToast({ message: 'Customer added successfully!', type: 'success' });
+      dispatch(getAllCustomers());
+      setNewCustomer({ name: '', phone: '', email: '', address: '' });
+      setShowAddCustomer(false);
+      isAddingCustomerRef.current = false;
+      // Reset state after a brief delay to allow toast to show
+      const timer = setTimeout(() => {
+        dispatch(resetCustomer());
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+    if (isCustomerError && showAddCustomer && customerMessage && isAddingCustomerRef.current) {
+      // Error - show error notification but keep modal open
+      setToast({ message: customerMessage || 'Failed to add customer', type: 'error' });
+      isAddingCustomerRef.current = false;
+    }
+  }, [isCustomerSuccess, isCustomerError, customerMessage, showAddCustomer, dispatch]);
 
   const selectCustomer = (customer) => {
     updateTabData({ customer });
@@ -867,9 +894,10 @@ const POS = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    disabled={isCustomerLoading}
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Add Customer
+                    {isCustomerLoading ? 'Adding...' : 'Add Customer'}
                   </button>
                 </div>
               </form>
@@ -1070,6 +1098,13 @@ const POS = () => {
             </div>
           </div>
         )}
+
+        {/* Toast Notification */}
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ message: '', type: 'success' })}
+        />
       </div>
     </Layout>
   );

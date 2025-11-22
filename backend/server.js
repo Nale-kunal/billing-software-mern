@@ -21,8 +21,19 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
-app.use(morgan("dev"));
+
+// CORS configuration - allow requests from frontend
+const corsOptions = {
+  origin: process.env.FRONTEND_URL 
+    ? process.env.FRONTEND_URL.split(',')
+    : ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+
+// Logging middleware - use combined format in production, dev in development
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // DB Connection
 connectDB();
@@ -33,6 +44,7 @@ app.get("/", (req, res) => {
 });
 
 
+// Routes
 app.use("/api/auth", authRoutes);
 // app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
@@ -43,8 +55,21 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/reports", reportRoutes);
 // app.use("/api/settings", settingsRoutes);
 
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: `Route not found: ${req.method} ${req.path}` });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("Server Error:", err);
+  res.status(500).json({ message: "Server Error", error: err.message });
+});
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () =>
-  console.log(`✅ Server running on port ${PORT}`)
-);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`📍 API endpoints available at http://localhost:${PORT}/api`);
+  }
+});

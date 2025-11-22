@@ -1,6 +1,6 @@
-import Invoice from "../models/Invoice.js";
-import Item from "../models/Item.js";
-import Customer from "../models/Customer.js";
+import InvoiceService from "../services/invoiceService.js";
+import ItemService from "../services/itemService.js";
+import CustomerService from "../services/customerService.js";
 import { generateAIReport } from "../utils/aiReportHelper.js";
 import { checkStockAlerts } from "../utils/stockAlert.js";
 import { info, error } from "../utils/logger.js";
@@ -12,8 +12,8 @@ import { info, error } from "../utils/logger.js";
 export const getSalesReport = async (req, res) => {
   try {
     // Only get invoices and items for current user
-    const invoices = await Invoice.find({ createdBy: req.user._id });
-    const items = await Item.find({ addedBy: req.user._id });
+    const invoices = await InvoiceService.find({ createdBy: req.user._id });
+    const items = await ItemService.find({ addedBy: req.user._id });
 
     const report = generateAIReport(invoices, items);
     const stockAlerts = await checkStockAlerts(req.user._id);
@@ -33,7 +33,7 @@ export const getSalesReport = async (req, res) => {
  */
 export const getStockReport = async (req, res) => {
   try {
-    const items = await Item.find({ addedBy: req.user._id }).sort({ stockQty: 1 });
+    const items = await ItemService.find({ addedBy: req.user._id, sort: "stockQty" });
     const lowStock = items.filter((i) => i.stockQty <= i.lowStockLimit);
     res.status(200).json({ totalItems: items.length, lowStock });
   } catch (err) {
@@ -48,10 +48,11 @@ export const getStockReport = async (req, res) => {
  */
 export const getCustomerReport = async (req, res) => {
   try {
-    const customers = await Customer.find({ 
+    const customers = await CustomerService.find({ 
       owner: req.user._id, 
-      dues: { $gt: 0 } 
-    }).sort({ dues: -1 });
+      dues: { $gt: 0 },
+      sort: "-dues"
+    });
     res.status(200).json(customers);
   } catch (err) {
     error(`Customer Report Error: ${err.message}`);

@@ -1,4 +1,4 @@
-import User from "../models/User.js";
+import UserService from "../services/userService.js";
 import { generateToken } from "../config/jwt.js";
 
 /**
@@ -15,13 +15,13 @@ export const registerUser = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await UserService.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
     // Create new user
-    const user = await User.create({
+    const user = await UserService.create({
       name,
       email,
       password,
@@ -60,12 +60,12 @@ export const loginUser = async (req, res) => {
       return res.status(400).json({ message: "Please enter email and password" });
     }
 
-    // Find user
-    const user = await User.findOne({ email });
+    // Find user with password for verification
+    const user = await UserService.findOne({ email }, true);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Match password
-    const isMatch = await user.matchPassword(password);
+    const isMatch = await UserService.matchPassword(password, user.password);
     if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
     // Send response
@@ -89,10 +89,12 @@ export const loginUser = async (req, res) => {
  */
 export const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("-password");
+    const user = await UserService.findByIdAndUpdate(req.user._id, {}, { select: "-password", new: true });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+    // Remove password if present
+    delete user.password;
     res.status(200).json(user);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });

@@ -1,4 +1,4 @@
-import Item from "../models/Item.js";
+import ItemService from "../services/itemService.js";
 import { checkStockAlerts } from "../utils/stockAlert.js";
 import { info, error } from "../utils/logger.js";
 
@@ -16,12 +16,12 @@ export const addItem = async (req, res) => {
     }
 
     // Check if item already exists for this user
-    const existing = await Item.findOne({ name, addedBy: req.user._id });
+    const existing = await ItemService.findOne({ name, addedBy: req.user._id });
     if (existing) {
       return res.status(400).json({ message: "Item already exists in your inventory" });
     }
 
-    const item = await Item.create({
+    const item = await ItemService.create({
       name,
       sku,
       category,
@@ -50,7 +50,7 @@ export const addItem = async (req, res) => {
  */
 export const getAllItems = async (req, res) => {
   try {
-    const items = await Item.find({ addedBy: req.user._id }).sort({ createdAt: -1 });
+    const items = await ItemService.find({ addedBy: req.user._id, sort: "-createdAt" });
     res.status(200).json(items);
   } catch (err) {
     error(`Get All Items Error: ${err.message}`);
@@ -64,7 +64,7 @@ export const getAllItems = async (req, res) => {
  */
 export const getSingleItem = async (req, res) => {
   try {
-    const item = await Item.findOne({ 
+    const item = await ItemService.findOne({ 
       _id: req.params.id, 
       addedBy: req.user._id 
     });
@@ -87,7 +87,7 @@ export const getSingleItem = async (req, res) => {
 export const updateItem = async (req, res) => {
   try {
     // First check if item belongs to this owner
-    const item = await Item.findOne({ 
+    const item = await ItemService.findOne({ 
       _id: req.params.id, 
       addedBy: req.user._id 
     });
@@ -98,18 +98,17 @@ export const updateItem = async (req, res) => {
 
     // Check for duplicate name if name is being updated
     if (req.body.name && req.body.name !== item.name) {
-      const existingName = await Item.findOne({ 
+      const existingName = await ItemService.findOne({ 
         name: req.body.name, 
-        addedBy: req.user._id,
-        _id: { $ne: req.params.id }
+        addedBy: req.user._id
       });
       
-      if (existingName) {
+      if (existingName && existingName._id !== req.params.id) {
         return res.status(400).json({ message: "Item name already exists in your inventory" });
       }
     }
 
-    const updated = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await ItemService.findByIdAndUpdate(req.params.id, req.body, { new: true });
 
     info(`Item updated by ${req.user.name}: ${updated.name}`);
 
@@ -127,7 +126,7 @@ export const updateItem = async (req, res) => {
  */
 export const deleteItem = async (req, res) => {
   try {
-    const item = await Item.findOne({ 
+    const item = await ItemService.findOne({ 
       _id: req.params.id, 
       addedBy: req.user._id 
     });
@@ -136,7 +135,7 @@ export const deleteItem = async (req, res) => {
       return res.status(404).json({ message: "Item not found or unauthorized" });
     }
 
-    await Item.findByIdAndDelete(req.params.id);
+    await ItemService.findByIdAndDelete(req.params.id);
 
     info(`Item deleted by ${req.user.name}: ${item.name}`);
     res.status(200).json({ message: "Item deleted" });
@@ -152,7 +151,7 @@ export const deleteItem = async (req, res) => {
  */
 export const getLowStockItems = async (req, res) => {
   try {
-    const items = await Item.find({
+    const items = await ItemService.find({
       addedBy: req.user._id,
       $expr: { $lte: ["$stockQty", "$lowStockLimit"] },
     });

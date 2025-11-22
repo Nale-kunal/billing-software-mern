@@ -16,9 +16,6 @@ const Customers = () => {
 
   useEffect(() => {
     dispatch(getAllCustomers());
-    return () => {
-      dispatch(reset());
-    };
   }, [dispatch]);
 
   const handleDelete = async (id) => {

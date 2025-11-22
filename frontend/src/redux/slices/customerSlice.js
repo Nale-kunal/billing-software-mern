@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import API_BASE_URL from '../../services/api.js';
 
-const API_URL = 'http://localhost:3000/api/customers';
+const API_URL = `${API_BASE_URL}/customers`;
 
 // Get token from state
 const getConfig = (token) => ({

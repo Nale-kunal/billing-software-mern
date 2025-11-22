@@ -1,5 +1,5 @@
-import Customer from "../models/Customer.js";
-import Transaction from "../models/Transaction.js";
+import CustomerService from "../services/customerService.js";
+import TransactionService from "../services/transactionService.js";
 import { info, error } from "../utils/logger.js";
 
 /**
@@ -15,7 +15,7 @@ export const addCustomer = async (req, res) => {
     }
 
     // Check for duplicate phone within this owner's customers
-    const existingPhone = await Customer.findOne({ 
+    const existingPhone = await CustomerService.findOne({ 
       phone, 
       owner: req.user._id 
     });
@@ -26,7 +26,7 @@ export const addCustomer = async (req, res) => {
 
     // Check for duplicate email within this owner's customers (if email provided)
     if (email) {
-      const existingEmail = await Customer.findOne({ 
+      const existingEmail = await CustomerService.findOne({ 
         email, 
         owner: req.user._id 
       });
@@ -37,7 +37,7 @@ export const addCustomer = async (req, res) => {
     }
 
     // Create customer with owner reference
-    const customer = await Customer.create({ 
+    const customer = await CustomerService.create({ 
       name, 
       phone, 
       email, 
@@ -60,7 +60,7 @@ export const addCustomer = async (req, res) => {
 export const updateCustomer = async (req, res) => {
   try {
     // First check if customer belongs to this owner
-    const customer = await Customer.findOne({ 
+    const customer = await CustomerService.findOne({ 
       _id: req.params.id, 
       owner: req.user._id 
     });
@@ -71,31 +71,29 @@ export const updateCustomer = async (req, res) => {
 
     // Check for duplicate phone if phone is being updated
     if (req.body.phone && req.body.phone !== customer.phone) {
-      const existingPhone = await Customer.findOne({ 
+      const existingPhone = await CustomerService.findOne({ 
         phone: req.body.phone, 
-        owner: req.user._id,
-        _id: { $ne: req.params.id } // Exclude current customer
+        owner: req.user._id
       });
       
-      if (existingPhone) {
+      if (existingPhone && existingPhone._id !== req.params.id) {
         return res.status(400).json({ message: "Phone number already exists" });
       }
     }
 
     // Check for duplicate email if email is being updated
     if (req.body.email && req.body.email !== customer.email) {
-      const existingEmail = await Customer.findOne({ 
+      const existingEmail = await CustomerService.findOne({ 
         email: req.body.email, 
-        owner: req.user._id,
-        _id: { $ne: req.params.id }
+        owner: req.user._id
       });
       
-      if (existingEmail) {
+      if (existingEmail && existingEmail._id !== req.params.id) {
         return res.status(400).json({ message: "Email already exists" });
       }
     }
 
-    const updated = await Customer.findByIdAndUpdate(
+    const updated = await CustomerService.findByIdAndUpdate(
       req.params.id, 
       req.body, 
       { new: true }
@@ -116,7 +114,7 @@ export const updateCustomer = async (req, res) => {
 export const getAllCustomers = async (req, res) => {
   try {
     // Only get customers that belong to current user
-    const customers = await Customer.find({ owner: req.user._id }).sort({ name: 1 });
+    const customers = await CustomerService.find({ owner: req.user._id, sort: "name" });
     res.status(200).json(customers);
   } catch (err) {
     error(`Get All Customers Error: ${err.message}`);
@@ -131,7 +129,7 @@ export const getAllCustomers = async (req, res) => {
 export const getCustomerById = async (req, res) => {
   try {
     // Only get customer if it belongs to current user
-    const customer = await Customer.findOne({ 
+    const customer = await CustomerService.findOne({ 
       _id: req.params.id, 
       owner: req.user._id 
     });
@@ -154,7 +152,7 @@ export const getCustomerById = async (req, res) => {
 export const deleteCustomer = async (req, res) => {
   try {
     // First check if customer belongs to this owner
-    const customer = await Customer.findOne({ 
+    const customer = await CustomerService.findOne({ 
       _id: req.params.id, 
       owner: req.user._id 
     });
@@ -163,7 +161,7 @@ export const deleteCustomer = async (req, res) => {
       return res.status(404).json({ message: "Customer not found or unauthorized" });
     }
 
-    await Customer.findByIdAndDelete(req.params.id);
+    await CustomerService.findByIdAndDelete(req.params.id);
     info(`Customer deleted by ${req.user.name}: ${customer.name}`);
     res.status(200).json({ message: "Customer deleted" });
   } catch (err) {
@@ -179,7 +177,7 @@ export const deleteCustomer = async (req, res) => {
 export const getCustomerTransactions = async (req, res) => {
   try {
     // First check if customer belongs to this owner
-    const customer = await Customer.findOne({ 
+    const customer = await CustomerService.findOne({ 
       _id: req.params.id, 
       owner: req.user._id 
     });
@@ -188,11 +186,15 @@ export const getCustomerTransactions = async (req, res) => {
       return res.status(404).json({ message: "Customer not found or unauthorized" });
     }
 
-    const transactions = await Transaction.find({
+    let transactions = await TransactionService.find({
       customer: req.params.id,
-    })
-      .sort({ createdAt: -1 })
-      .populate("invoice", "invoiceNo totalAmount paymentStatus");
+      sort: "-createdAt"
+    });
+
+    // Populate invoice field
+    transactions = await Promise.all(
+      transactions.map(t => TransactionService.populateInvoice(t, ["invoiceNo", "totalAmount", "paymentStatus"]))
+    );
 
     res.status(200).json({
       customer: { name: customer.name, phone: customer.phone },

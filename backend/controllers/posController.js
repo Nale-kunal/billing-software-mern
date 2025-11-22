@@ -1,7 +1,7 @@
-import Invoice from "../models/Invoice.js";
-import Item from "../models/Item.js";
-import Customer from "../models/Customer.js";
-import Transaction from "../models/Transaction.js";
+import InvoiceService from "../services/invoiceService.js";
+import ItemService from "../services/itemService.js";
+import CustomerService from "../services/customerService.js";
+import TransactionService from "../services/transactionService.js";
 import { generateInvoicePDF } from "../utils/invoiceGenerator.js";
 import { sendEmail } from "../utils/emailService.js";
 import { info, error } from "../utils/logger.js";
@@ -31,7 +31,7 @@ export const createInvoice = async (req, res) => {
 
     // Verify all items belong to current user
     for (const it of items) {
-      const item = await Item.findOne({ _id: it.item, addedBy: req.user._id });
+      const item = await ItemService.findOne({ _id: it.item, addedBy: req.user._id });
       if (!item) {
         return res.status(400).json({ 
           message: `Item not found or unauthorized: ${it.item}` 
@@ -48,7 +48,7 @@ export const createInvoice = async (req, res) => {
 
     // Verify customer belongs to current user if provided
     if (customerId) {
-      const customer = await Customer.findOne({ 
+      const customer = await CustomerService.findOne({ 
         _id: customerId, 
         owner: req.user._id 
       });
@@ -60,11 +60,11 @@ export const createInvoice = async (req, res) => {
     }
 
     // Create invoice number (ex: INV-00001) - unique per user
-    const count = await Invoice.countDocuments({ createdBy: req.user._id });
+    const count = await InvoiceService.countDocuments({ createdBy: req.user._id });
     const invoiceNo = `INV-${String(count + 1).padStart(5, "0")}`;
 
     // Save invoice
-    const invoice = await Invoice.create({
+    const invoice = await InvoiceService.create({
       invoiceNo,
       customer: customerId || null,
       items,
@@ -80,15 +80,15 @@ export const createInvoice = async (req, res) => {
 
     // Update stock
     for (const it of items) {
-      await Item.findByIdAndUpdate(it.item, { $inc: { stockQty: -it.quantity } });
+      await ItemService.incrementField(it.item, "stockQty", -it.quantity);
     }
 
     // Handle customer dues if unpaid
     if (customerId && paidAmount < totalAmount) {
       const dueAmount = totalAmount - paidAmount;
-      await Customer.findByIdAndUpdate(customerId, { $inc: { dues: dueAmount } });
+      await CustomerService.incrementField(customerId, "dues", dueAmount);
 
-      await Transaction.create({
+      await TransactionService.create({
         type: "due",
         customer: customerId,
         invoice: invoice._id,
@@ -99,7 +99,7 @@ export const createInvoice = async (req, res) => {
 
     // Record payment transaction
     if (paidAmount > 0) {
-      await Transaction.create({
+      await TransactionService.create({
         type: "payment",
         customer: customerId,
         invoice: invoice._id,
@@ -110,7 +110,8 @@ export const createInvoice = async (req, res) => {
     }
 
     // Generate invoice PDF + Email it + Log it
-    const populatedInvoice = await Invoice.findById(invoice._id).populate("customer");
+    let populatedInvoice = await InvoiceService.findById(invoice._id);
+    populatedInvoice = await InvoiceService.populateCustomer(populatedInvoice);
     const pdfPath = await generateInvoicePDF(populatedInvoice);
 
     if (populatedInvoice.customer?.email) {
@@ -137,9 +138,13 @@ export const createInvoice = async (req, res) => {
  */
 export const getAllInvoices = async (req, res) => {
   try {
-    const invoices = await Invoice.find({ createdBy: req.user._id })
-      .populate("customer", "name phone")
-      .sort({ createdAt: -1 });
+    let invoices = await InvoiceService.find({ createdBy: req.user._id, sort: "-createdAt" });
+    
+    // Populate customer field with selected fields
+    invoices = await Promise.all(
+      invoices.map(inv => InvoiceService.populateCustomerWithSelect(inv, ["name", "phone"]))
+    );
+    
     res.status(200).json(invoices);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
@@ -152,15 +157,16 @@ export const getAllInvoices = async (req, res) => {
  */
 export const getInvoiceById = async (req, res) => {
   try {
-    const invoice = await Invoice.findOne({ 
+    let invoice = await InvoiceService.findOne({ 
       _id: req.params.id, 
       createdBy: req.user._id 
-    }).populate("customer");
+    });
     
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found or unauthorized" });
     }
     
+    invoice = await InvoiceService.populateCustomer(invoice);
     res.status(200).json(invoice);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
@@ -173,7 +179,7 @@ export const getInvoiceById = async (req, res) => {
  */
 export const deleteInvoice = async (req, res) => {
   try {
-    const invoice = await Invoice.findOne({ 
+    const invoice = await InvoiceService.findOne({ 
       _id: req.params.id, 
       createdBy: req.user._id 
     });
@@ -182,7 +188,7 @@ export const deleteInvoice = async (req, res) => {
       return res.status(404).json({ message: "Invoice not found or unauthorized" });
     }
 
-    await invoice.deleteOne();
+    await InvoiceService.deleteOne({ _id: req.params.id, createdBy: req.user._id });
     res.status(200).json({ message: "Invoice deleted" });
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });

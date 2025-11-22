@@ -2,7 +2,7 @@ import express from "express";
 import {
   getSalesReport,
   getStockReport,
-  getCustomerReport
+  getCustomerReport,
   // getAIReport,
 } from "../controllers/reportController.js";
 import { protect } from "../middlewares/authMiddleware.js";

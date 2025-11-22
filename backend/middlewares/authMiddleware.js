@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/User.js";
+import UserService from "../services/userService.js";
 
 /**
  * Middleware to protect routes
@@ -19,7 +19,12 @@ export const protect = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Attach user (without password)
-      req.user = await User.findById(decoded.id).select("-password");
+      const user = await UserService.findById(decoded.id);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      delete user.password;
+      req.user = user;
       next();
     } else {
       return res.status(401).json({ message: "Not authorized, token missing" });

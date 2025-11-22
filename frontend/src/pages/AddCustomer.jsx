@@ -23,11 +23,14 @@ const AddCustomer = () => {
 
   useEffect(() => {
     if (isSuccess) {
-      navigate('/customers');
-    }
-    return () => {
+      // Reset state flags before navigation to prevent cleanup from interfering
       dispatch(reset());
-    };
+      // Small delay to ensure state is reset before navigation
+      const timer = setTimeout(() => {
+        navigate('/customers');
+      }, 100);
+      return () => clearTimeout(timer);
+    }
   }, [isSuccess, navigate, dispatch]);
 
   const onChange = (e) => {

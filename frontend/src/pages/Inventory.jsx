@@ -18,9 +18,6 @@ const Inventory = () => {
   useEffect(() => {
     dispatch(getAllItems());
     dispatch(getLowStockItems());
-    return () => {
-      dispatch(reset());
-    };
   }, [dispatch]);
 
   const handleDelete = async (id) => {

@@ -1,4 +1,4 @@
-import Item from "../models/Item.js";
+import ItemService from "../services/itemService.js";
 
 /**
  * Checks for low or out-of-stock items and returns alert list
@@ -6,7 +6,7 @@ import Item from "../models/Item.js";
  */
 export const checkStockAlerts = async (userId) => {
   try {
-    const items = await Item.find({
+    const items = await ItemService.find({
       addedBy: userId,
       $expr: { $lte: ["$stockQty", "$lowStockLimit"] },
     });
